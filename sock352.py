@@ -9,7 +9,7 @@ import sys
 # and received from
 
 def init(UDPportTx,UDPportRx):   # initialize your UDP socket here 
-	UPD_port = UDPportRx
+	UDP_port = UDPportRx
 	UDP_IP = UDPportRx
     pass 
     
@@ -24,9 +24,13 @@ class socket:
         return
     
     def bind(self,address):
+		server_address = (address, UDP_IP)
+		self.sock.bind(server_address)
         return 
 
     def connect(self,address):  # fill in your code here 
+		server_address = (address, UDP_port)
+		self.sock.connect(server_address)
         return 
     
     def listen(self,backlog):
