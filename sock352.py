@@ -43,11 +43,12 @@ class socket:
 
     def connect(self,address):  # fill in your code here 
 		
+		server_address = (address, UDP_port)
 		#look for connections 
 		conn, addr = self.sock.accept()
 		with conn:
 			print('Connected by', addr)
-			#the sender sends a packet, 2nd step of handshake 
+			#the sender sends a packet, 3rd step of handshake 
 			while True:
 				data = conn.recv(1024)
 				header_unpack = udpPkt_header_data.unpack('!BBBBHHLLQQLL',header)
@@ -59,7 +60,7 @@ class socket:
 				if(ack > 1):
 					ack_no = seq + 1
 					sequence_no = seq + 1
-					server_address = (address, UDP_port)
+					
 					self.sock.connect(server_address)
 					udpPkt_hdr_data = struct.Struct(sock352PktHdrData)
 		
@@ -72,7 +73,6 @@ class socket:
 		
 		#no packet is received 
 		
-		server_address = (address, UDP_port)
 		self.sock.connect(server_address)
 		udpPkt_hdr_data = struct.Struct(sock352PktHdrData)
 		
@@ -87,6 +87,7 @@ class socket:
 
     def accept(self):
 
+		#2nd step of handshake
 		conn, addr = self.sock.accept()
 		with conn:
 			print('Connected by', addr)
