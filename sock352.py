@@ -61,7 +61,15 @@ class socket:
 			while True:
 				data = conn.recv(1024)
 				header_unpack = udpPkt_header_data.unpack('!BBBBHHLLQQLL',header)
+
 				array = header_unpack.split(', ')
+
+				unpack_list=header_unpack.split(', ')
+				flag=unpack_list(1)
+				if flag is 1:
+				    seq=unpack_list(6)	
+				else:
+				    
 		
         (clientsocket, address) = (1,1)  # change this to your code 
         return (clientsocket,address)
