@@ -8,6 +8,19 @@ import sys
 # define the UDP ports all messages are sent
 # and received from
 
+
+version =  1
+flags = 1
+opt_ptr = 0
+checksum = 0
+source_port = 0
+dest_port= 0
+sequence_no = 1
+ack_no = 0
+window = 0
+payload_len = 0
+sock352PktHdrData = '!BBBBHHLLQQLL'
+
 def init(UDPportTx,UDPportRx):   # initialize your UDP socket here 
 	UDP_port = UDPportRx
 	UDP_IP = UDPportRx
@@ -31,18 +44,7 @@ class socket:
     def connect(self,address):  # fill in your code here 
 		server_address = (address, UDP_port)
 		self.sock.connect(server_address)
-		sock352PktHdrData = '!BBBBHHLLQQLL'
 		udpPkt_hdr_data = struct.Struct(sock352PktHdrData)
-		version =  1
-		flags = 1
-		opt_ptr = 0
-		checksum = 0
-		source_port = 0
-		dest_port= 0
-		sequence_no = 1
-		ack_no = 0
-		window = 0
-		payload_len = 0
 		
 		header = udpPkt_header_data.pack(version, flags, opt_ptr, protocol, checksum, source_port, dest_port, sequence_no, ack_no, window, payload_len)
 		
@@ -54,7 +56,7 @@ class socket:
         return
 
     def accept(self):
-	
+
 		conn, addr = self.sock.accept()
 		with conn:
 			print('Connected by', addr)
@@ -67,8 +69,15 @@ class socket:
 				unpack_list=header_unpack.split(', ')
 				flag=unpack_list(1)
 				if flag is 1:
-				    seq=unpack_list(6)	
+				    seq=unpack_list(6)
+						ack_no = seq + 1
+						udpPkt_hdr_data = struct.Struct(sock352PktHdrData)
+		
+						header = udpPkt_header_data.pack(version, flags, opt_ptr, protocol, checksum, source_port, dest_port, sequence_no, ack_no, window, payload_len)
+						self.sock.sendto(header, addr)
+						
 				else:
+					break
 				    
 		
         (clientsocket, address) = (1,1)  # change this to your code 
