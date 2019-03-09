@@ -3,6 +3,7 @@ import binascii
 import socket as syssock 
 import sys
 import threading
+import struct
 
 
 # these functions are global to the class and
@@ -20,9 +21,12 @@ sequence_no = 1
 ack_no = 0
 window = 0
 payload_len = 0
+protocol = 0
 sock352PktHdrData = '!BBBBHHLLQQLL'
 UDP_port = 0
 UDP_IP = 0
+header_len = 00001100
+udpPkt_hdr_data = struct.Struct(sock352PktHdrData)
 
 def init(UDPportTx,UDPportRx):   # initialize your UDP socket here 
 	UDP_port = UDPportTx
@@ -55,9 +59,9 @@ class socket:
 		
 		server_address = (address, UDP_port)
 		
-		udpPkt_hdr_data = struct.Struct(sock352PktHdrData)
+		udpPkt_header_data = struct.Struct(sock352PktHdrData)
 		
-		header = udpPkt_header_data.pack(version, flags, opt_ptr, protocol, checksum, source_port, dest_port, sequence_no, ack_no, window, payload_len)
+		header = udpPkt_header_data.pack(version, flags, opt_ptr, protocol, checksum, header_len,source_port, dest_port, sequence_no, ack_no, window, payload_len)
 		
 		self.sock.sendto(header, server_address)
 		
@@ -70,16 +74,16 @@ class socket:
 		array = header_unpack.split(', ')
 
 		unpack_list=header_unpack.split(', ')
-		ack = unpack_list(8)
+		ack_rec = unpack_list(8)
 		seq = unpack_list(7)
-		if(ack > 1):
+		if(ack_rec > 1):
 			print("hello from client")
-			ack_no = seq + 1
-			sequence_no = ack
+			ack_send = seq + 1
+			seq = ack_rec
 			
-			udpPkt_hdr_data = struct.Struct(sock352PktHdrData)
+			udpPkt_header_data = struct.Struct(sock352PktHdrData)
 
-			header = udpPkt_header_data.pack(version, flags, opt_ptr, protocol, checksum, source_port, dest_port, sequence_no, ack_no, window, payload_len)
+			header = udpPkt_header_data.pack(version, flags, opt_ptr, protocol, checksum, header_len, source_port, dest_port, seq, ack_send, window, payload_len)
 
 			self.sock.sendto(header, server_address)
 		else:
@@ -107,9 +111,10 @@ class socket:
 			print("hello from server")
 			seq=unpack_list(6)
 			ack_no = seq + 1
-			udpPkt_hdr_data = struct.Struct(sock352PktHdrData)
+			
+			udpPkt_header_data = struct.Struct(sock352PktHdrData)
 
-			header = udpPkt_header_data.pack(version, flags, opt_ptr, protocol, checksum, source_port, dest_port, sequence_no, ack_no, window, payload_len)
+			header = udpPkt_header_data.pack(version, flags, opt_ptr, protocol, checksum, header_len, source_port, dest_port, sequence_no, ack_no, window, payload_len)
 			self.sock.sendto(header, address)
 				
 		
