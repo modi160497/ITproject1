@@ -56,18 +56,17 @@ class socket:
 	def connect(self,address):  # fill in your code here 
 		
 		#first step of handshake
-		
-		server_address = (address, UDP_port)
-		
+
 		udpPkt_header_data = struct.Struct(sock352PktHdrData)
 		
 		header = udpPkt_header_data.pack(version, flags, opt_ptr, protocol, checksum, header_len,source_port, dest_port, sequence_no, ack_no, window, payload_len)
-		
-		self.sock.sendto(header, server_address)
+		print(type(header))
+		self.sock.sendto(header, address)
 		
 		#look for connections 
-		#the sender sends a packet, 3rd step of handshake 
-		self.sock.bind(server_address)
+		#the sender sends a packet, 3rd step of handshake
+		print(UDP_IP)
+		self.sock.bind(("",UDP_port))
 		(data,address) = self.sock.recv(1024)
 		
 		header_unpack = udpPkt_header_data.unpack('!BBBBHHLLQQLL',header)
@@ -85,7 +84,7 @@ class socket:
 
 			header = udpPkt_header_data.pack(version, flags, opt_ptr, protocol, checksum, header_len, source_port, dest_port, seq, ack_send, window, payload_len)
 
-			self.sock.sendto(header, server_address)
+			self.sock.sendto(header, address)
 		else:
 			return 
 		#no packet is received 
