@@ -21,6 +21,8 @@ ack_no = 0
 window = 0
 payload_len = 0
 sock352PktHdrData = '!BBBBHHLLQQLL'
+UDP_port = 0
+UDP_IP = 0
 
 def init(UDPportTx,UDPportRx):   # initialize your UDP socket here 
 	UDP_port = UDPportTx
@@ -92,9 +94,9 @@ class socket:
 	def accept(self):
 
 		#2nd step of handshake
-		self.sock.bind(("",UDP_port))
+		self.sock.bind(('',UDP_port))
 		
-		(data,address) = self.socket.recv(1024)
+		(data,address) = self.sock.recv(1024)
 		header_unpack = udpPkt_header_data.unpack('!BBBBHHLLQQLL',header)
 
 		array = header_unpack.split(', ')
