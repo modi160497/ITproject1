@@ -1,8 +1,9 @@
 
 import binascii
-import socket 
-import struct
+import socket as syssock 
 import sys
+import threading
+
 
 # these functions are global to the class and
 # define the UDP ports all messages are sent
@@ -24,108 +25,107 @@ sock352PktHdrData = '!BBBBHHLLQQLL'
 def init(UDPportTx,UDPportRx):   # initialize your UDP socket here 
 	UDP_port = UDPportTx
 	UDP_IP = UDPportRx
-    pass 
-    
-class socket:
-    
-    def __init__(self):  # fill in your code here 
-		 if sock is None:
-            self.sock = socket.socket(
-                socket.AF_INET, socket.SOCK_DGRAM)
-        else:
-            self.sock = sock
-        return
-    
-    def bind(self,address):
-		server_address = (address, UDP_IP)
-		self.sock.bind(server_address)
-        return 
+	pass 
+	
+sock = None
 
-    def connect(self,address):  # fill in your code here 
+class socket:
+	
+	def __init__(self):  # fill in your code here 
+	
+		if sock is None:
+			self.sock = syssock.socket(
+				syssock.AF_INET, syssock.SOCK_DGRAM)
+			#self.sock.setblocking(0)
+			self.sock.settimeout(1) 
+		else:
+			self.sock = sock
+			self.sock.settimeout(1) 
+			#self.sock.setblocking(0)
+		return
+	
+	def bind(self,address):
+		return 
+
+	def connect(self,address):  # fill in your code here 
+		
+		#first step of handshake
 		
 		server_address = (address, UDP_port)
-		#look for connections 
-		conn, addr = self.sock.accept()
-		with conn:
-			print('Connected by', addr)
-			#the sender sends a packet, 3rd step of handshake 
-			while True:
-				data = conn.recv(1024)
-				header_unpack = udpPkt_header_data.unpack('!BBBBHHLLQQLL',header)
-				array = header_unpack.split(', ')
-
-				unpack_list=header_unpack.split(', ')
-				ack = unpack_list(8)
-				seq = unpack_list(7)
-				if(ack > 1):
-					ack_no = seq + 1
-					sequence_no = seq + 1
-					
-					self.sock.connect(server_address)
-					udpPkt_hdr_data = struct.Struct(sock352PktHdrData)
 		
-					header = udpPkt_header_data.pack(version, flags, opt_ptr, protocol, checksum, source_port, dest_port, sequence_no, ack_no, window, payload_len)
-		
-					self.sock.sendto(header, server_address)
-					return
-				else:
-					break
-		
-		#no packet is received 
-		
-		self.sock.connect(server_address)
 		udpPkt_hdr_data = struct.Struct(sock352PktHdrData)
 		
 		header = udpPkt_header_data.pack(version, flags, opt_ptr, protocol, checksum, source_port, dest_port, sequence_no, ack_no, window, payload_len)
 		
 		self.sock.sendto(header, server_address)
 		
-        return 
-    
-    def listen(self,backlog):
-        return
+		#look for connections 
+		#the sender sends a packet, 3rd step of handshake 
+		self.sock.bind(server_address)
+		(data,address) = self.sock.recv(1024)
+		
+		header_unpack = udpPkt_header_data.unpack('!BBBBHHLLQQLL',header)
+		array = header_unpack.split(', ')
 
-    def accept(self):
+		unpack_list=header_unpack.split(', ')
+		ack = unpack_list(8)
+		seq = unpack_list(7)
+		if(ack > 1):
+			print("hello from client")
+			ack_no = seq + 1
+			sequence_no = ack
+			
+			udpPkt_hdr_data = struct.Struct(sock352PktHdrData)
+
+			header = udpPkt_header_data.pack(version, flags, opt_ptr, protocol, checksum, source_port, dest_port, sequence_no, ack_no, window, payload_len)
+
+			self.sock.sendto(header, server_address)
+		else:
+			return 
+		#no packet is received 
+		
+			
+	
+	def listen(self,backlog):
+		return
+
+	def accept(self):
 
 		#2nd step of handshake
-		conn, addr = self.sock.accept()
-		with conn:
-			print('Connected by', addr)
-			while True:
-				data = conn.recv(1024)
-				header_unpack = udpPkt_header_data.unpack('!BBBBHHLLQQLL',header)
-
-				array = header_unpack.split(', ')
-
-				unpack_list=header_unpack.split(', ')
-				flag=unpack_list(1)
-				if flag is 1:
-				    seq=unpack_list(6)
-						ack_no = seq + 1
-						udpPkt_hdr_data = struct.Struct(sock352PktHdrData)
+		self.sock.bind(("",UDP_port))
 		
-						header = udpPkt_header_data.pack(version, flags, opt_ptr, protocol, checksum, source_port, dest_port, sequence_no, ack_no, window, payload_len)
-						self.sock.sendto(header, UDP_IP)
-						
-				else:
-					break
-				    
+		(data,address) = self.socket.recv(1024)
+		header_unpack = udpPkt_header_data.unpack('!BBBBHHLLQQLL',header)
+
+		array = header_unpack.split(', ')
+
+		unpack_list=header_unpack.split(', ')
+		flag=unpack_list(1)
+		if flag is 1:
+			print("hello from server")
+			seq=unpack_list(6)
+			ack_no = seq + 1
+			udpPkt_hdr_data = struct.Struct(sock352PktHdrData)
+
+			header = udpPkt_header_data.pack(version, flags, opt_ptr, protocol, checksum, source_port, dest_port, sequence_no, ack_no, window, payload_len)
+			self.sock.sendto(header, address)
+				
 		
-        (clientsocket, address) = (1,1)  # change this to your code 
-        return (clientsocket,address)
-    
-    def close(self):   # fill in your code here 
-        return 
+	   # change this to your code 
+		return (self.sock,address)
+	
+	def close(self):   # fill in your code here 
+		return 
 
-    def send(self,buffer):
-        bytessent = 0     # fill in your code here 
-        return bytesent 
+	def send(self,buffer):
+		bytessent = 0     # fill in your code here 
+		return bytesent 
 
-    def recv(self,nbytes):
-        bytesreceived = 0     # fill in your code here
-        return bytesreceived 
+	def recv(self,nbytes):
+		bytesreceived = 0     # fill in your code here
+		return bytesreceived 
 
 
-    
+	
 
 
