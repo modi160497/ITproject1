@@ -9,7 +9,7 @@ import struct
 # these functions are global to the class and
 # define the UDP ports all messages are sent
 # and received from
-
+from time import sleep
 
 version =  1
 flags = 1
@@ -25,7 +25,7 @@ protocol = 0
 sock352PktHdrData = '!BBBBHHLLQQLL'
 UDP_port = 0
 UDP_IP = 0
-header_len = 00001100
+header_len = 12
 udpPkt_hdr_data = struct.Struct(sock352PktHdrData)
 
 def init(UDPportTx,UDPportRx):   # initialize your UDP socket here 
@@ -34,25 +34,21 @@ def init(UDPportTx,UDPportRx):   # initialize your UDP socket here
 	UDP_port = UDPportTx
 	UDP_IP = UDPportRx
 
-	print(UDP_IP)
-	print(UDP_port)
 	pass
-	
-sock = None
 
 class socket:
 	
 	def __init__(self):  # fill in your code here 
 	
-		if sock is None:
-			self.sock = syssock.socket(
-				syssock.AF_INET, syssock.SOCK_DGRAM)
-			#self.sock.setblocking(0)
-			self.sock.settimeout(1) 
-		else:
-			self.sock = sock
-			self.sock.settimeout(1) 
-			#self.sock.setblocking(0)
+		# if sock is None:
+		self.sock = syssock.socket(
+			syssock.AF_INET, syssock.SOCK_DGRAM)
+
+		# if sock_rec is None:
+		self.sock_rec = syssock.socket(
+			syssock.AF_INET, syssock.SOCK_DGRAM)
+
+
 		return
 	
 	def bind(self,address):
@@ -62,37 +58,37 @@ class socket:
 
 		#first step of handshake
 
-		udpPkt_header_data = struct.Struct(sock352PktHdrData)
-		
-		header = udpPkt_header_data.pack(version, flags, opt_ptr, protocol, checksum, header_len,source_port, dest_port, sequence_no, ack_no, window, payload_len)
-		print(type(header))
-		self.sock.sendto(header, address)
+		header = struct.pack(sock352PktHdrData, version, flags, opt_ptr, protocol, header_len, checksum, source_port, dest_port, sequence_no, ack_no, window, payload_len)
+
+		send_address = ('127.0.0.1', int(UDP_port))
+		print("in connect")
+		print(send_address)
+
+		print(header)
+		self.sock.sendto(header, send_address)
 		
 		#look for connections 
 		#the sender sends a packet, 3rd step of handshake
 
-		sock_recv = syssock.socket(
-				syssock.AF_INET, syssock.SOCK_DGRAM)
+		self.sock_rec.settimeout(1)
 
-		sock_recv.bind(('', int(UDP_port)))
-		(data,address) = sock_recv.recv(1024)
-		
-		header_unpack = udpPkt_header_data.unpack('!BBBBHHLLQQLL',header)
-		array = header_unpack.split(', ')
+		self.sock_rec.bind(('', int(UDP_IP)))
+		(data, address) = self.sock_rec.recvfrom(1024)
 
-		unpack_list=header_unpack.split(', ')
-		ack_rec = unpack_list(8)
-		seq = unpack_list(7)
-		if(ack_rec > 1):
+		self.sock_rec.settimeout(0)
+
+		header_unpack = struct.unpack('!BBBBHHLLQQLL',data)
+
+		ack_rec = header_unpack[8]
+		seq = header_unpack[7]
+		if(ack_rec > 0):
 			print("hello from client")
 			ack_send = seq + 1
 			seq = ack_rec
-			
-			udpPkt_header_data = struct.Struct(sock352PktHdrData)
 
-			header = udpPkt_header_data.pack(version, flags, opt_ptr, protocol, checksum, header_len, source_port, dest_port, seq, ack_send, window, payload_len)
+			header = struct.pack(sock352PktHdrData,version, flags, opt_ptr, protocol,  header_len, checksum, source_port, dest_port, seq, ack_send, window, payload_len)
 
-			self.sock.sendto(header, address)
+			self.sock.sendto(header, send_address)
 		else:
 			return 
 		#no packet is received 
@@ -105,25 +101,23 @@ class socket:
 	def accept(self):
 
 		#2nd step of handshake
-		self.sock.bind(('',UDP_port))
+		self.sock_rec.bind(('',int(UDP_IP)))
 		
-		(data,address) = self.sock.recv(1024)
-		header_unpack = udpPkt_header_data.unpack('!BBBBHHLLQQLL',header)
+		(data, address) = self.sock_rec.recvfrom(1024)
+		print (address)
+		header_unpack = struct.unpack('!BBBBHHLLQQLL',data)
+		print(header_unpack)
 
-		array = header_unpack.split(', ')
+		send_address = ('127.0.0.1', int(UDP_port))
 
-		unpack_list=header_unpack.split(', ')
-		flag=unpack_list(1)
+		flag= header_unpack[1]
 		if flag is 1:
 			print("hello from server")
-			seq=unpack_list(6)
+			seq= header_unpack[6]
 			ack_no = seq + 1
-			
-			udpPkt_header_data = struct.Struct(sock352PktHdrData)
 
-			header = udpPkt_header_data.pack(version, flags, opt_ptr, protocol, checksum, header_len, source_port, dest_port, sequence_no, ack_no, window, payload_len)
-			self.sock.sendto(header, address)
-				
+			header = struct.pack(sock352PktHdrData,version, flags, opt_ptr, protocol, checksum, header_len, source_port, dest_port, sequence_no, ack_no, window, payload_len)
+			self.sock.sendto(header, send_address)
 		
 	   # change this to your code 
 		return (self.sock,address)
@@ -133,7 +127,7 @@ class socket:
 
 	def send(self,buffer):
 		bytessent = 0     # fill in your code here 
-		return bytesent 
+		return
 
 	def recv(self,nbytes):
 		bytesreceived = 0     # fill in your code here
