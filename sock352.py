@@ -29,7 +29,7 @@ header_len = struct.calcsize('!BBBBHHLLQQLL')
 
 sock352PktHdrData = '!BBBBHHLLQQLL'
 
-packet_max = 64000
+packet_max = 1000
 
 # total bytes recieved by the server
 total = []
@@ -61,7 +61,11 @@ class socket:
 		# array to store packets
 		self.packetarr = []
 
-		self.ackno = 0
+		self.data_packets = []
+
+		self.ack_no = 0
+
+		self.sequence_no = 0
 
 		return
 
@@ -132,10 +136,9 @@ class socket:
 
 		while(True):
 			(data, address) = self.sock_rec.recvfrom(1024)
-			print (data)
 
 			header_unpack = struct.unpack('!BBBBHHLLQQLL', data)
-			print(header_unpack)
+			#print(header_unpack)
 
 			send_address = ('127.0.0.1', int(UDP_port))
 
@@ -169,37 +172,51 @@ class socket:
 
 	def create_packets(self, buffer):
 
-		print("header length")
-
 		# max bytes from buffer in one packet can be the max payload size minus the header length
 
 		max_payload = (packet_max - header_len)
+		indexbeg = 0
+		indexend = max_payload
 
 		# get total number of packets
 		number_packets = sys.getsizeof(buffer) / max_payload
+		print(number_packets)
 
 		# one packet sent if buffer is less than max packet size
 		if (sys.getsizeof(buffer) < max_payload):
 			header = struct.pack(sock352PktHdrData, version, flags, opt_ptr, protocol, checksum, header_len,
 								 source_port, dest_port, sequence_no, ack_no, window, sys.getsizeof(buffer))
-			number_packets = number_packets + 1
+			number_packets = 1
 			packet = header + buffer
 			self.packetarr.append(packet)
 
 		# create multiple packets
 		else:
+
 			for i in range(0, number_packets):
+				print("index beg: " + str(indexbeg))
+				print("index end: " + str(indexend))
+
 				header = struct.pack(sock352PktHdrData, version, flags, opt_ptr, protocol, checksum, header_len,
 									 source_port, dest_port, sequence_no, ack_no, window, sys.getsizeof(buffer))
-				packet = header + buffer[max_payload]
+				packet = header + buffer[indexbeg:indexend]
+				print(sys.getsizeof(packet))
 				self.packetarr.append(packet)
+				indexbeg = indexend + 1
+				indexend = indexbeg + max_payload
 
 		# create packet for leftover bytes if length of the buffer is not divisible by the max packet size
-		left_over = sys.getsizeof(buffer) - (number_packets * max_payload)
-		header = struct.pack(sock352PktHdrData, version, flags, opt_ptr, protocol, checksum, header_len,
-							 source_port, dest_port, sequence_no, ack_no, window, payload_len)
-		packet = header + buffer
-		self.packetarr.append(packet)
+
+		if(sys.getsizeof(buffer) % max_payload!= 0):
+			print("index beg: " + str(indexbeg))
+			print("index end: " + str(indexend))
+			number_packets = number_packets + 1
+			left_over = sys.getsizeof(buffer) - (number_packets * max_payload)
+			header = struct.pack(sock352PktHdrData, version, flags, opt_ptr, protocol, checksum, header_len,
+								 source_port, dest_port, sequence_no, ack_no, window, payload_len)
+			packet = header + buffer[indexbeg+1:]
+			print(sys.getsizeof(packet))
+			self.packetarr.append(packet)
 
 		return number_packets
 
@@ -215,10 +232,6 @@ class socket:
 		# the client sends over the file size
 
 		if (self.str_len == -1):
-
-			print(type(buffer))
-			print(buffer)
-
 			filesize = struct.unpack('!L', buffer)[0]
 			self.str_len = filesize
 			bytessent = sys.getsizeof(buffer)
@@ -226,23 +239,23 @@ class socket:
 			buffer = struct.pack('!L', bytessent)
 			self.sock.sendto(buffer, send_address)
 
-			print(filesize)
+			print("filesize: " + str(filesize))
 
 			return bytessent
 
 		else:
-			print(buffer)
+			#print(buffer)
 
 			number_packets = self.create_packets(buffer)
-
-			# print(number_packets)
 
 			# counter of packets sent
 			counter = 0
 
-			#while (counter < number_packets):
-				#self.sock.sendto(self.packetarr[counter], send_address)
-				#counter = counter + 1
+			while(counter < number_packets):
+				bytessent += sys.getsizeof(self.packetarr[counter])
+				print("number of bytes sent: " + str(bytessent))
+				self.sock.sendto(self.packetarr[counter], send_address)
+				counter = counter + 1
 
 		return bytessent
 
@@ -252,7 +265,10 @@ class socket:
 
 		to_rcv = nbytes
 
+		send_address = ('127.0.0.1', int(UDP_port))
+
 		if (self.str_len == -1):
+			print("file size sent")
 			file_size_packet = self.sock_rec.recv(1024)
 			self.str_len = struct.unpack("!L", file_size_packet)[0]
 			longPacker = struct.Struct("!L")
@@ -264,27 +280,38 @@ class socket:
 			# while there is more to receive
 			while to_rcv > 0:
 				# receive packet and separate header from payload
-				packet = self.socket.recv(header_len + to_rcv)
+				packet = self.sock_rec.recv(header_len + to_rcv)
 				packet_header = packet[:header_len]
 				packet_header = struct.unpack(sock352PktHdrData, packet_header)
+				print("packet header" + str(packet_header))
 				packet_data = packet[header_len:]
+				print("packet data: " + str(packet_data))
+
 				# if ack is not what we expect, ignore
-				if packet_header[8] != self.ackno:
-					return
+
+				#if  packet_header[8] != self.ackno:
+					#return
+
+
 				# add data packets to the list of data in total we received and send ack
 				self.data_packets.append(packet_data)
 				self.ack_no += 1
 				ack_flag = 0x04
-				ack_pack = struct.Struct(sock352PktHdrData).pack(version, ack_flag, 0x0, 0x0, header_len,
-																 self.sequence_no, self.ack_no, 0x0, payload_len)
+				payload_len = len(packet_data)
+				ack_pack = struct.pack(sock352PktHdrData, version, ack_flag, opt_ptr, protocol, checksum, header_len,
+							 source_port, dest_port, self.sequence_no, self.ack_no, window, payload_len)
 				self.sequence_no += 1
-				self.socket.send(ack_pack)
-				to_rcv -= len(packet_data)
+				self.sock.sendto(ack_pack, send_address)
+				to_rcv -= sys.getsizeof(packet_data)
+				print("number of bytes left: " + str(to_rcv))
 				# add to total packets received
 
 				total.append(packet_data)
 
-		return self.str_len
+		print(self.data_packets)
+
+		return ' '.join(total)
+
 
 
 
