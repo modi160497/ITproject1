@@ -1,23 +1,21 @@
-
 import binascii
-import socket as syssock 
+import socket as syssock
 import sys
 import threading
 import struct
-
 
 # these functions are global to the class and
 # define the UDP ports all messages are sent
 # and received from
 from time import sleep
 
-#global variables for the header packet
-version =  1
-flags = 1
+# global variables for the header packet
+version = 1
+flags = 0
 opt_ptr = 0
 checksum = 0
 source_port = 0
-dest_port= 0
+dest_port = 0
 sequence_no = 1
 ack_no = 0
 window = 0
@@ -36,18 +34,20 @@ packet_max = 64000
 # total bytes recieved by the server
 total = []
 
-def init(UDPportTx,UDPportRx):   # initialize your UDP socket here 
+
+def init(UDPportTx, UDPportRx):  # initialize your UDP socket here
 	global UDP_port
 	global UDP_IP
-	UDP_port = UDPportTx # transmitting port
-	UDP_IP = UDPportRx # receiving port
+	UDP_port = UDPportTx  # transmitting port
+	UDP_IP = UDPportRx  # receiving port
 
 	pass
 
+
 class socket:
-	
-	def __init__(self):  # fill in your code here 
-	
+
+	def __init__(self):  # fill in your code here
+
 		# create a socket to send
 		self.sock = syssock.socket(
 			syssock.AF_INET, syssock.SOCK_DGRAM)
@@ -64,24 +64,24 @@ class socket:
 		self.ackno = 0
 
 		return
-	
-	def bind(self,address):
+
+	def bind(self, address):
 
 		# do nothing
 
-		return 
+		return
 
-	def connect(self,address):  # fill in your code here
+	def connect(self, address):  # fill in your code here
 
 		# first step of handshake
-
-		header = struct.pack(sock352PktHdrData, version, flags, opt_ptr, protocol, header_len, checksum, source_port, dest_port, sequence_no, ack_no, window, payload_len)
+		syn = 1
+		header = struct.pack(sock352PktHdrData, version, syn, opt_ptr, protocol, header_len, checksum, source_port,
+							 dest_port, sequence_no, ack_no, window, payload_len)
 
 		send_address = ('127.0.0.1', int(UDP_port))
-		#print("in connect")
+		# print("in connect")
 
 		self.sock.sendto(header, send_address)
-
 
 		# the sender has sent a packet. 3rd step of handshake
 
@@ -94,20 +94,22 @@ class socket:
 
 		self.sock_rec.settimeout(0)
 
-		header_unpack = struct.unpack('!BBBBHHLLQQLL',data)
-		#print(header_unpack)
+		header_unpack = struct.unpack('!BBBBHHLLQQLL', data)
+		# print(header_unpack)
 
 		ack_rec = header_unpack[8]
 		seq = header_unpack[7]
 
-		#the sender acks the 1st packet sent by client
+		# the sender acks the 1st packet sent by client
 
-		if(ack_rec > 0):
+		if (ack_rec > 0):
 			print("hello from client")
 			ack_send = seq + 1
 			seq = ack_rec
+			syn = 0
 
-			header = struct.pack(sock352PktHdrData,version, flags, opt_ptr, protocol,  header_len, checksum, source_port, dest_port, seq, ack_send, window, payload_len)
+			header = struct.pack(sock352PktHdrData, version, syn, opt_ptr, protocol, header_len, checksum,
+								 source_port, dest_port, seq, ack_send, window, payload_len)
 
 			self.sock.sendto(header, send_address)
 
@@ -116,43 +118,48 @@ class socket:
 
 	def listen(self, backlog):
 
-		#do nothing
+		# do nothing
 
 		return
 
 	def accept(self):
 
-		#2nd step of handshake
+		# 2nd step of handshake
 
-		#socket binds to the receiving port of the client
+		# socket binds to the receiving port of the client
 
-		self.sock_rec.bind(('',int(UDP_IP)))
-		
-		(data, address) = self.sock_rec.recvfrom(1024)
-		print (data)
+		self.sock_rec.bind(('', int(UDP_IP)))
 
-		header_unpack = struct.unpack('!BBBBHHLLQQLL',data)
-		print(header_unpack)
+		while(True):
+			(data, address) = self.sock_rec.recvfrom(1024)
+			print (data)
 
-		send_address = ('127.0.0.1', int(UDP_port))
+			header_unpack = struct.unpack('!BBBBHHLLQQLL', data)
+			print(header_unpack)
 
-		flag = header_unpack[1]
+			send_address = ('127.0.0.1', int(UDP_port))
 
-		# the client has sent a syn
+			flag = header_unpack[1]
 
-		if flag is 1:
-			print("hello from server")
-			seq= header_unpack[6]
-			ack_no = seq + 1
+			# the client has sent a syn
 
-			header = struct.pack(sock352PktHdrData,version, flags, opt_ptr, protocol, checksum, header_len, source_port, dest_port, sequence_no, ack_no, window, payload_len)
-			self.sock.sendto(header, send_address)
+			if flag is 1:
+				print("hello from server")
+				seq = header_unpack[6]
+				ack_no = seq + 1
 
-		return (self,address)
-	
-	def close(self):   # fill in your code here
+				header = struct.pack(sock352PktHdrData, version, flags, opt_ptr, protocol, checksum, header_len,
+									 source_port, dest_port, sequence_no, ack_no, window, payload_len)
+				self.sock.sendto(header, send_address)
+			if flag is 0:
+				if (ack_no == seq + 1):
+					break
 
-		#close both recieving and sending sockets
+		return (self, address)
+
+	def close(self):  # fill in your code here
+
+		# close both recieving and sending sockets
 
 		self.sock.close()
 
@@ -166,38 +173,37 @@ class socket:
 
 		# max bytes from buffer in one packet can be the max payload size minus the header length
 
-		max_payload = (packet_max-header_len)
+		max_payload = (packet_max - header_len)
 
-		#get total number of packets
+		# get total number of packets
 		number_packets = sys.getsizeof(buffer) / max_payload
 
 		# one packet sent if buffer is less than max packet size
-		if( sys.getsizeof(buffer) < max_payload):
+		if (sys.getsizeof(buffer) < max_payload):
 			header = struct.pack(sock352PktHdrData, version, flags, opt_ptr, protocol, checksum, header_len,
 								 source_port, dest_port, sequence_no, ack_no, window, sys.getsizeof(buffer))
 			number_packets = number_packets + 1
 			packet = header + buffer
 			self.packetarr.append(packet)
 
-		#create multiple packets
+		# create multiple packets
 		else:
-			for i in range(0,number_packets):
+			for i in range(0, number_packets):
 				header = struct.pack(sock352PktHdrData, version, flags, opt_ptr, protocol, checksum, header_len,
 									 source_port, dest_port, sequence_no, ack_no, window, sys.getsizeof(buffer))
 				packet = header + buffer[max_payload]
 				self.packetarr.append(packet)
 
 		# create packet for leftover bytes if length of the buffer is not divisible by the max packet size
-		left_over = sys.getsizeof(buffer) - (i * max_payload)
+		left_over = sys.getsizeof(buffer) - (number_packets * max_payload)
 		header = struct.pack(sock352PktHdrData, version, flags, opt_ptr, protocol, checksum, header_len,
-							 source_port, dest_port, sequence_no, ack_no, window, left_over)
-		packet = header + buffer[left_over]
+							 source_port, dest_port, sequence_no, ack_no, window, payload_len)
+		packet = header + buffer
 		self.packetarr.append(packet)
 
 		return number_packets
 
-
-	def send(self,buffer):
+	def send(self, buffer):
 
 		print("in send")
 
@@ -208,44 +214,52 @@ class socket:
 
 		# the client sends over the file size
 
-		if(self.str_len== -1):
+		if (self.str_len == -1):
 
 			print(type(buffer))
+			print(buffer)
 
-			self.sock.sendto(buffer, send_address)
 			filesize = struct.unpack('!L', buffer)[0]
 			self.str_len = filesize
 			bytessent = sys.getsizeof(buffer)
+
+			buffer = struct.pack('!L', bytessent)
+			self.sock.sendto(buffer, send_address)
+
 			print(filesize)
 
 			return bytessent
 
 		else:
-			#print(buffer)
+			print(buffer)
 
 			number_packets = self.create_packets(buffer)
 
-			#print(number_packets)
+			# print(number_packets)
 
 			# counter of packets sent
 			counter = 0
 
-			while(counter < number_packets):
-				self.sock.sendto(self.packetarr[counter],send_address)
-				counter = counter + 1
+			#while (counter < number_packets):
+				#self.sock.sendto(self.packetarr[counter], send_address)
+				#counter = counter + 1
 
 		return bytessent
 
-	def recv(self,nbytes):
+	def recv(self, nbytes):
 
 		print("in recv")
 
 		to_rcv = nbytes
 
-		if(self.str_len == -1):
+		if (self.str_len == -1):
 			file_size_packet = self.sock_rec.recv(1024)
+			self.str_len = struct.unpack("!L", file_size_packet)[0]
+			longPacker = struct.Struct("!L")
+			fileLenPacked = longPacker.pack(self.str_len)
+			return fileLenPacked
 
-			self.str_len= struct.unpack("!L", file_size_packet)[0]
+
 		else:
 			# while there is more to receive
 			while to_rcv > 0:
@@ -275,6 +289,6 @@ class socket:
 
 
 
-	
+
 
 
