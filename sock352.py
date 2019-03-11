@@ -31,7 +31,7 @@ header_len = struct.calcsize('!BBBBHHLLQQLL')
 
 sock352PktHdrData = '!BBBBHHLLQQLL'
 
-payload_max = 64000
+packet_max = 64000
 
 # total bytes recieved by the server
 total = []
@@ -166,13 +166,13 @@ class socket:
 
 		# max bytes from buffer in one packet can be the max payload size minus the header length
 
-		max_packetsize = (payload_max-header_len)
+		max_payload = (packet_max-header_len)
 
 		#get total number of packets
-		number_packets = sys.getsizeof(buffer) / max_packetsize
+		number_packets = sys.getsizeof(buffer) / max_payload
 
 		# one packet sent if buffer is less than max packet size
-		if( sys.getsizeof(buffer) < (payload_max-header_len)):
+		if( sys.getsizeof(buffer) < max_payload):
 			header = struct.pack(sock352PktHdrData, version, flags, opt_ptr, protocol, checksum, header_len,
 								 source_port, dest_port, sequence_no, ack_no, window, sys.getsizeof(buffer))
 			number_packets = number_packets + 1
@@ -184,11 +184,11 @@ class socket:
 			for i in range(0,number_packets):
 				header = struct.pack(sock352PktHdrData, version, flags, opt_ptr, protocol, checksum, header_len,
 									 source_port, dest_port, sequence_no, ack_no, window, sys.getsizeof(buffer))
-				packet = header + buffer[max_packetsize]
+				packet = header + buffer[max_payload]
 				self.packetarr.append(packet)
 
 		# create packet for leftover bytes if length of the buffer is not divisible by the max packet size
-		left_over = sys.getsizeof(buffer) - (i * max_packetsize)
+		left_over = sys.getsizeof(buffer) - (i * max_payload)
 		header = struct.pack(sock352PktHdrData, version, flags, opt_ptr, protocol, checksum, header_len,
 							 source_port, dest_port, sequence_no, ack_no, window, left_over)
 		packet = header + buffer[left_over]
@@ -221,11 +221,18 @@ class socket:
 			return bytessent
 
 		else:
-			print(buffer)
+			#print(buffer)
 
 			number_packets = self.create_packets(buffer)
 
-			print(number_packets)
+			#print(number_packets)
+
+			# counter of packets sent
+			counter = 0
+
+			while(counter < number_packets):
+				self.sock.sendto(self.packetarr[counter],send_address)
+				counter = counter + 1
 
 		return bytessent
 
