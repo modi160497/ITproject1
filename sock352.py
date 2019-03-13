@@ -70,6 +70,8 @@ class socket:
 
 		self.transmission = True
 
+		self.retransmit = False
+
 		return
 
 	def bind(self, address):
@@ -227,15 +229,18 @@ class socket:
 		self.ack_no = 1
 
 		while(self.ack_no != self.sequence_no):
+			self.sock_rec.settimeout(1)
 			packet = self.sock_rec.recv(header_len)
+			#self.sock_rec.settimeout(0)
 			packet_header = struct.unpack(sock352PktHdrData, packet)
-			print("packet header" + str(packet_header))
+			print("packet header in receive_acks" + str(packet_header))
 			if packet_header[9] != self.ack_no:
-				return False
+				 self.retransmit = True
+				 return
 			else:
 				self.ack_no+=1
 
-		return True
+		return False
 
 
 	def send(self, buffer):
@@ -263,15 +268,11 @@ class socket:
 
 		#print(buffer)
 
-		thread = Thread(target=self.recieve_acks())
-		thread.start()
+		# counter of packets sent
+		counter = 0
+		number_packets = self.create_packets(buffer)
 
 		while(self.transmission==True):
-
-			number_packets = self.create_packets(buffer)
-
-			# counter of packets sent
-			counter = 0
 
 			while(counter < number_packets):
 				bytessent += sys.getsizeof(self.packetarr[counter])
@@ -279,7 +280,18 @@ class socket:
 				self.sock.sendto(self.packetarr[counter], send_address)
 				counter = counter + 1
 
+
+			thread = Thread(target=self.recieve_acks())
+			thread.start()
 			thread.join()
+
+			#if the acks do not match the sequence numbers from the thread processing, retransmit packets after last ack
+			if(self.retransmit==False):
+				self.transmission = False
+			else:
+				counter = self.ack_no
+
+
 
 		return bytessent
 
@@ -299,16 +311,16 @@ class socket:
 			fileLenPacked = longPacker.pack(self.str_len)
 			return fileLenPacked
 
+		self.sequence_no += 1
 
 			# while there is more to receive
-		while to_rcv < self.str_len:
-
-			self.sequence_no +=1
+		while (to_rcv < self.str_len):
 
 			# receive packet and separate header from payload
 			packet = self.sock_rec.recv(header_len + nbytes)
 			packet_header = packet[:header_len]
 			packet_header = struct.unpack(sock352PktHdrData, packet_header)
+			print(self.sequence_no)
 			print("packet header" + str(packet_header))
 			packet_data = packet[header_len:]
 			#print("packet data: " + str(packet_data))
@@ -316,17 +328,17 @@ class socket:
 			# if seq_num is not what we expect, ignore
 
 			if  packet_header[8] != self.sequence_no:
-				break
+				continue
 
 			# add data packets to the list of data in total we received and send ack
 			self.data_packets.append(packet_data)
-			self.sequence_no += 1
 			self.ack_no += 1
 			ack_flag = 0x04
 			payload_len = sys.getsizeof(packet_header)
 			ack_pack = struct.pack(sock352PktHdrData, version, ack_flag, opt_ptr, protocol, checksum, header_len,
 						 source_port, dest_port, self.sequence_no, self.ack_no, window, payload_len)
 			self.sock.sendto(ack_pack, send_address)
+			self.sequence_no += 1
 			to_rcv += sys.getsizeof(packet)
 			print("bytes recieved: " + str(to_rcv))
 			# add to total packets received
